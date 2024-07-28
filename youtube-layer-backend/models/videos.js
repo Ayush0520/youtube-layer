@@ -1,45 +1,63 @@
 const { sql, poolPromise } = require('../config/dbConnection');
 
 class Video {
-    constructor(videoId, uploaderUsername, filePath, status = 'pending') {
-        this.videoId = videoId;
-        this.uploaderUsername = uploaderUsername;
+    constructor(id, editorUsername, youtuberUsername, filePath, uploadDate, status, reviewComments) {
+        this.id = id;
+        this.editorUsername = editorUsername;
+        this.youtuberUsername = youtuberUsername;
         this.filePath = filePath;
+        this.uploadDate = uploadDate;
         this.status = status;
+        this.reviewComments = reviewComments;
     }
 
-    static async create(video) {
+    static async create(video, transaction = null) {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('videoId', sql.UniqueIdentifier, video.videoId)
-            .input('uploaderUsername', sql.VarChar, video.uploaderUsername)
+        const request = transaction ? new sql.Request(transaction) : new sql.Request(pool);
+        const result = await request
+            .input('editorUsername', sql.VarChar, video.editorUsername)
+            .input('youtuberUsername', sql.VarChar, video.youtuberUsername)
             .input('filePath', sql.VarChar, video.filePath)
+            .input('uploadDate', sql.DateTime, video.uploadDate)
             .input('status', sql.VarChar, video.status)
-            .query(`INSERT INTO videos (video_id, uploader_username, file_path, upload_date, status) 
-                    VALUES (@videoId, @uploaderUsername, @filePath, GETDATE(), @status)`);
-        return result;
-    }
-
-    static async findById(videoId) {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('videoId', sql.UniqueIdentifier, videoId)
-            .query(`SELECT * FROM videos WHERE video_id = @videoId`);
+            .input('reviewComments', sql.Text, video.reviewComments)
+            .query(`INSERT INTO videos (editor_username, youtuber_username, file_path, upload_date, status, review_comments)
+                    OUTPUT inserted.id, inserted.editor_username, inserted.youtuber_username, inserted.file_path, inserted.upload_date, inserted.review_comments
+                    VALUES (@editorUsername, @youtuberUsername, @filePath, @uploadDate, @status, @reviewComments)`);
         return result.recordset[0];
     }
 
-    static async updateStatus(videoId, status, reviewComments = null) {
+    static async findById(videoId) {        
         const pool = await poolPromise;
-        const request = pool.request()
-            .input('videoId', sql.UniqueIdentifier, videoId)
-            .input('status', sql.VarChar, status);
+        const result = await pool.request()
+            .input('id', sql.Int, videoId)
+            .query(`SELECT * FROM videos WHERE id = @id`);
+        return result.recordset[0];
+    }
 
-        if (reviewComments) {
-            request.input('reviewComments', sql.Text, reviewComments);
-            await request.query(`UPDATE videos SET status = @status, review_comments = @reviewComments WHERE video_id = @videoId`);
-        } else {
-            await request.query(`UPDATE videos SET status = @status WHERE video_id = @videoId`);
-        }
+    static async findByUsernameAndStatus(username, status) {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('username', sql.VarChar, username)
+            .input('status', sql.VarChar, status)
+            .query(`SELECT * FROM videos WHERE 
+                    (editor_username = @username OR youtuber_username = @username) 
+                    AND status = @status`);
+        return result.recordset;
+    }
+
+    static async update(id, video, transaction = null) {
+        const pool = await poolPromise;
+        const request = transaction ? new sql.Request(transaction) : new sql.Request(pool);
+        const result = await request
+            .input('id', sql.Int, id)
+            .input('filePath', sql.VarChar, video.filePath) 
+            .input('status', sql.VarChar, video.status)
+            .input('reviewComments', sql.Text, video.review_comments)
+            .query(`UPDATE videos 
+                    SET file_path = @filePath, status = @status, review_comments = @reviewComments
+                    WHERE id = @id`);
+        return result;
     }
 }
 

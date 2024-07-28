@@ -14,9 +14,10 @@ app.use(express.json());
 
 /* Routes */
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/youtube', require('./routes/youtubeRoutes'));
 app.use('/api/videos', require('./routes/videoRoutes'));
-app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/collaborations', require('./routes/collaborationRoutes'));
 
 /* Custom error handler middleware */
 app.use(errorHandler);

@@ -34,6 +34,15 @@ class Collaboration {
             .query(`SELECT * FROM collaborations WHERE id = @requestId`);
         return result.recordset[0];
     }
+
+    static async findByUsername(username) {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('username', sql.VarChar, username)
+            .query(`SELECT * FROM collaborations WHERE 
+                    sender_username = @username OR receiver_username = @username`);
+        return result.recordset;
+    }
 }
 
 module.exports = Collaboration;
